@@ -25,18 +25,6 @@ const FACES_START_POS: [(u32, u32); 6] = [
     // Bottom face
     (FACE_SIZE, 2 * FACE_SIZE),
 ];
-const FACE_0_X: u32 = FACES_START_POS[0].0;
-const FACE_0_Y: u32 = FACES_START_POS[0].1;
-const FACE_1_X: u32 = FACES_START_POS[1].0;
-const FACE_1_Y: u32 = FACES_START_POS[1].1;
-const FACE_2_X: u32 = FACES_START_POS[2].0;
-const FACE_2_Y: u32 = FACES_START_POS[2].1;
-const FACE_3_X: u32 = FACES_START_POS[3].0;
-const FACE_3_Y: u32 = FACES_START_POS[3].1;
-const FACE_4_X: u32 = FACES_START_POS[4].0;
-const FACE_4_Y: u32 = FACES_START_POS[4].1;
-const FACE_5_X: u32 = FACES_START_POS[5].0;
-const FACE_5_Y: u32 = FACES_START_POS[5].1;
 
 // Colors
 const BLACK: Rgb<u8> = Rgb([0, 0, 0]);
@@ -162,40 +150,126 @@ fn get_plus_center_draw_position(index: usize) -> (usize, usize, usize) {
     (face_num, x, y)
 }
 
+fn draw_tile(img: &mut RgbImage, face_x_y: (usize, usize, usize), color: u8) {
+    let color = num_to_color(color);
+    let (x, y) = get_location(face_x_y.0, face_x_y.1, face_x_y.2);
+    let rect = Rect::at(x as i32, y as i32).of_size(CELL_SIZE - LINE_WIDTH, CELL_SIZE - LINE_WIDTH);
+    draw_filled_rect_mut(img, rect, color);
+}
+
+fn get_location(face: usize, x_tiles: usize, y_tiles: usize) -> (u32, u32) {
+    let x = FACES_START_POS[face].0 + CELL_SIZE * x_tiles as u32 + LINE_WIDTH;
+    let y = FACES_START_POS[face].1 + CELL_SIZE * y_tiles as u32 + LINE_WIDTH;
+    (x, y)
+}
+
 fn draw_centers_on_image(state: &State, img: &mut RgbImage) {
     for (index, center) in state.centers_x.iter().enumerate() {
-        let center_color = num_to_color(*center);
         let (face, x_tiles, y_tiles) = get_x_center_draw_position(index);
-        let x = FACES_START_POS[face].0 + CELL_SIZE * x_tiles as u32 + LINE_WIDTH;
-        let y = FACES_START_POS[face].1 + CELL_SIZE * y_tiles as u32 + LINE_WIDTH;
-        let rect =
-            Rect::at(x as i32, y as i32).of_size(CELL_SIZE - LINE_WIDTH, CELL_SIZE - LINE_WIDTH);
-        draw_filled_rect_mut(img, rect, center_color);
+        draw_tile(img, (face, x_tiles, y_tiles), *center);
     }
 
     for (index, center) in state.centers_plus.iter().enumerate() {
-        let center_color = num_to_color(*center);
         let (face, x_tiles, y_tiles) = get_plus_center_draw_position(index);
-        let x = FACES_START_POS[face].0 + CELL_SIZE * x_tiles as u32 + LINE_WIDTH;
-        let y = FACES_START_POS[face].1 + CELL_SIZE * y_tiles as u32 + LINE_WIDTH;
-        let rect =
-            Rect::at(x as i32, y as i32).of_size(CELL_SIZE - LINE_WIDTH, CELL_SIZE - LINE_WIDTH);
-        draw_filled_rect_mut(img, rect, center_color);
+        draw_tile(img, (face, x_tiles, y_tiles), *center);
     }
 
     for face in 0..6 {
-        let x = FACES_START_POS[face].0 + CELL_SIZE * 2 as u32 + LINE_WIDTH;
-        let y = FACES_START_POS[face].1 + CELL_SIZE * 2 as u32 + LINE_WIDTH;
-        let center_color = num_to_color(face as u8);
-        let rect =
-            Rect::at(x as i32, y as i32).of_size(CELL_SIZE - LINE_WIDTH, CELL_SIZE - LINE_WIDTH);
-        draw_filled_rect_mut(img, rect, center_color);
+        draw_tile(img, (face, 2, 2), face as u8);
+    }
+}
+
+fn draw_corners_on_image(state: &State, img: &mut RgbImage) {
+    let corners_colors = [
+        [0, 1, 4],
+        [0, 4, 3],
+        [0, 3, 2],
+        [0, 2, 1],
+        [5, 1, 2],
+        [5, 2, 3],
+        [5, 3, 4],
+        [5, 4, 1],
+    ];
+    let corner_tile_locations = [
+        [(0, 0, 0), (1, 0, 0), (4, 4, 0)],
+        [(0, 4, 0), (4, 0, 0), (3, 4, 0)],
+        [(0, 4, 4), (3, 0, 0), (2, 4, 0)],
+        [(0, 0, 4), (2, 0, 0), (1, 4, 0)],
+        [(5, 0, 0), (1, 4, 4), (2, 0, 4)],
+        [(5, 4, 0), (2, 4, 4), (3, 0, 4)],
+        [(5, 4, 4), (3, 4, 4), (4, 0, 4)],
+        [(5, 0, 4), (4, 4, 4), (1, 0, 4)],
+    ];
+
+    for (index, (corner_piece, piece_orientation)) in
+        state.corners_perm.iter().zip(state.corners_ori).enumerate()
+    {
+        let mut c = corners_colors[*corner_piece as usize];
+
+        if piece_orientation == 1 {
+            (c[0], c[1], c[2]) = (c[1], c[2], c[0])
+        } else if piece_orientation == 2 {
+            (c[0], c[1], c[2]) = (c[2], c[0], c[1])
+        }
+
+        let locs = corner_tile_locations[index];
+        for (loc, color) in locs.iter().zip(c.iter()) {
+            draw_tile(img, *loc, *color);
+        }
+    }
+}
+
+fn draw_midges_on_image(state: &State, img: &mut RgbImage) {
+    let midges_colors = [
+        [0, 4],
+        [0, 3],
+        [0, 2],
+        [0, 1],
+        [2, 3],
+        [2, 1],
+        [4, 1],
+        [4, 3],
+        [5, 2],
+        [5, 3],
+        [5, 4],
+        [5, 1],
+    ];
+    let midge_tile_locations = [
+        [(0, 2, 0), (4, 2, 0)],
+        [(0, 4, 2), (3, 2, 0)],
+        [(0, 2, 4), (2, 2, 0)],
+        [(0, 0, 2), (1, 2, 0)],
+        [(2, 4, 2), (3, 0, 2)],
+        [(2, 0, 2), (1, 4, 2)],
+        [(4, 4, 2), (1, 0, 2)],
+        [(4, 0, 2), (3, 4, 2)],
+        [(5, 2, 0), (2, 2, 4)],
+        [(5, 4, 2), (3, 2, 4)],
+        [(5, 2, 4), (4, 2, 4)],
+        [(5, 0, 2), (1, 2, 4)],
+    ];
+
+    for (index, (midge_piece, piece_orientation)) in
+        state.midges_perm.iter().zip(state.midges_ori).enumerate()
+    {
+        let mut c = midges_colors[*midge_piece as usize];
+
+        if piece_orientation == 1 {
+            (c[0], c[1]) = (c[1], c[0])
+        }
+
+        let locs = midge_tile_locations[index];
+        for (loc, color) in locs.iter().zip(c.iter()) {
+            draw_tile(img, *loc, *color);
+        }
     }
 }
 
 pub fn export_state_to_image(state: &State, file_path: &str) {
     let mut img = draw_rubiks_cube_frame();
     draw_centers_on_image(state, &mut img);
+    draw_corners_on_image(state, &mut img);
+    draw_midges_on_image(state, &mut img);
     img.save(file_path).expect("Failed to save state image");
 
     // println!("Rubik's cube frame saved as '{}'", file_path);
