@@ -220,19 +220,12 @@ fn draw_corners_on_image(state: &State, img: &mut RgbImage) {
 }
 
 fn draw_midges_on_image(state: &State, img: &mut RgbImage) {
+    #[rustfmt::skip]
     let midges_colors = [
-        [0, 4],
-        [0, 3],
-        [0, 2],
-        [0, 1],
-        [2, 3],
-        [2, 1],
-        [4, 1],
-        [4, 3],
-        [5, 2],
-        [5, 3],
-        [5, 4],
-        [5, 1],
+        [0, 4], [0, 3], [0, 2], [0, 1],
+        [2, 3], [2, 1],
+        [4, 1], [4, 3],
+        [5, 2], [5, 3], [5, 4], [5, 1],
     ];
     let midge_tile_locations = [
         [(0, 2, 0), (4, 2, 0)],
@@ -265,11 +258,42 @@ fn draw_midges_on_image(state: &State, img: &mut RgbImage) {
     }
 }
 
+fn draw_wings_on_image(state: &State, img: &mut RgbImage) {
+    #[rustfmt::skip]
+    let wing_colors = [
+        [0, 4], [0, 3], [0, 2], [0, 1],
+        [1, 0], [1, 2], [1, 5], [1, 4],
+        [2, 0], [2, 3], [2, 5], [2, 1],
+        [3, 0], [3, 4], [3, 5], [3, 2],
+        [4, 0], [4, 1], [4, 5], [4, 3],
+        [5, 2], [5, 3], [5, 4], [5, 1],
+    ];
+    #[rustfmt::skip]
+    let wing_tile_locations = [
+        [(0,3,0),(4,1,0)],[(0,4,3),(3,1,0)],[(0,1,4),(2,1,0)],[(0,0,1),(1,1,0)],
+        [(1,3,0),(0,0,3)],[(1,4,3),(2,0,3)],[(1,1,4),(5,0,3)],[(1,0,1),(4,4,1)],
+        [(2,3,0),(0,3,4)],[(2,4,3),(3,0,3)],[(2,1,4),(5,1,0)],[(2,0,1),(1,4,1)],
+        [(3,3,0),(0,4,1)],[(3,4,3),(4,0,3)],[(3,1,4),(5,4,1)],[(3,0,1),(2,4,1)],
+        [(4,3,0),(0,1,0)],[(4,4,3),(1,0,3)],[(4,1,4),(5,3,4)],[(4,0,1),(3,4,1)],
+        [(5,3,0),(2,3,4)],[(5,4,3),(3,3,4)],[(5,1,4),(4,3,4)],[(5,0,1),(1,3,4)],
+    ];
+
+    for (index, wing_piece) in state.wings.iter().enumerate() {
+        let c = wing_colors[*wing_piece as usize];
+
+        let locs = wing_tile_locations[index];
+        for (loc, color) in locs.iter().zip(c.iter()) {
+            draw_tile(img, *loc, *color);
+        }
+    }
+}
+
 pub fn export_state_to_image(state: &State, file_path: &str) {
     let mut img = draw_rubiks_cube_frame();
     draw_centers_on_image(state, &mut img);
     draw_corners_on_image(state, &mut img);
     draw_midges_on_image(state, &mut img);
+    draw_wings_on_image(state, &mut img);
     img.save(file_path).expect("Failed to save state image");
 
     // println!("Rubik's cube frame saved as '{}'", file_path);
