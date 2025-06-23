@@ -37,6 +37,7 @@ use crate::utils::is_permutation;
 ///     +-----+
 ///
 /// The typical orientation is white top, green front
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct State {
     /// A permutation of the numbers 0 through 8, where `corners_perm[i]` represents the piece at position `i`.
     pub corners_perm: [u8; 8],
@@ -149,5 +150,11 @@ impl State {
                 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
             ],
         }
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
     }
 }
