@@ -1,6 +1,10 @@
 pub mod state_to_img;
 
-use crate::utils::is_permutation;
+use crate::{
+    letters_arr,
+    moves::{Face, MoveDir, MoveType, MoveUnpkd},
+    utils::{apply_orbit_with_dir_to_array, is_permutation},
+};
 
 /// Encodes the state of a 5x5 cube,
 /// with data for different piece types stored separately.
@@ -64,6 +68,58 @@ pub struct State {
     /// (0 = white, 1 = orange, 2 = green, 3 = red, 4 = blue, 5 = yellow)
     pub centers_plus: [u8; 24],
 }
+
+const CORNER_ORBITS: [[usize; 4]; 6] = [
+    [0, 1, 2, 3], // U
+    [0, 3, 4, 7], // L
+    [3, 2, 5, 4], // F
+    [2, 1, 6, 5], // R
+    [1, 0, 7, 6], // B
+    [4, 5, 6, 7], // D
+];
+const CORNER_ORIENTATION_CHANGES: [[u8; 4]; 6] = [
+    [0, 0, 0, 0], // U
+    [1, 2, 1, 2], // L
+    [1, 2, 1, 2], // F
+    [1, 2, 1, 2], // R
+    [1, 2, 1, 2], // B
+    [0, 0, 0, 0], // D
+];
+
+const MIDGE_ORBITS: [[usize; 4]; 6] = [
+    [0, 1, 2, 3],   // U
+    [3, 5, 11, 6],  // L
+    [2, 4, 8, 5],   // F
+    [1, 7, 9, 4],   // R
+    [0, 6, 10, 7],  // B
+    [8, 9, 10, 11], // D
+];
+
+const WING_ORBITS_OUTER: [([usize; 4], [usize; 4]); 6] = [
+    (letters_arr!("ABCD"), letters_arr!("EQMI")), // U
+    (letters_arr!("EFGH"), letters_arr!("DLXR")), // L
+    (letters_arr!("IJKL"), letters_arr!("CPUF")), // F
+    (letters_arr!("MNOP"), letters_arr!("BTVJ")), // R
+    (letters_arr!("QRST"), letters_arr!("AHWN")), // B
+    (letters_arr!("UVWX"), letters_arr!("KOSG")), // D
+];
+const WING_ORBITS_WIDE: [[usize; 4]; 6] = [
+    letters_arr!("LHTP"), // U
+    letters_arr!("QCKW"), // L
+    letters_arr!("BOXE"), // F
+    letters_arr!("ASUI"), // R
+    letters_arr!("MDGV"), // B
+    letters_arr!("JNRF"), // D
+];
+
+const CENTER_ORBITS_WIDE_X: [([usize; 4], [usize; 4]); 6] = [
+    (letters_arr!("FRNJ"), letters_arr!("EQMI")), // U
+    (letters_arr!("AIUS"), letters_arr!("DLXR")), // L
+    (letters_arr!("DMVG"), letters_arr!("CPUF")), // F
+    (letters_arr!("CQWK"), letters_arr!("BTVJ")), // R
+    (letters_arr!("BEXO"), letters_arr!("AHWN")), // B
+    (letters_arr!("LPTH"), letters_arr!("KOSG")), // D
+];
 
 impl State {
     pub fn is_self_valid(&self) -> bool {
@@ -156,5 +212,74 @@ impl State {
 impl Default for State {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub trait MoveableState {
+    fn make_move<T>(&mut self, m: T)
+    where
+        T: Into<MoveUnpkd>;
+}
+
+impl MoveableState for State {
+    fn make_move<T>(&mut self, m: T)
+    where
+        T: Into<MoveUnpkd>,
+    {
+        let m: MoveUnpkd = m.into();
+        let face = u8::from(m.face);
+
+        // CORNERS:
+        let (cp, co) = (&mut self.corners_perm, &mut self.corners_ori);
+        let c_orbit = CORNER_ORBITS[face as usize];
+        let co_changes = CORNER_ORIENTATION_CHANGES[face as usize];
+        apply_orbit_with_dir_to_array(cp, c_orbit, m.dir);
+        apply_orbit_with_dir_to_array(co, c_orbit, m.dir);
+        if m.dir != MoveDir::Dub {
+            for i in 0..4 {
+                co[c_orbit[i]] = (co[c_orbit[i]] + co_changes[i]) % 3;
+            }
+        }
+
+        // MIDGES
+        let (mp, mo) = (&mut self.midges_perm, &mut self.midges_ori);
+        let m_orbit: [usize; 4] = MIDGE_ORBITS[face as usize];
+        apply_orbit_with_dir_to_array(mp, m_orbit, m.dir);
+        apply_orbit_with_dir_to_array(mo, m_orbit, m.dir);
+        if m.dir != MoveDir::Dub && (m.face == Face::F || m.face == Face::B) {
+            for i in 0..4 {
+                mo[m_orbit[i]] = (mo[m_orbit[i]] + 1) % 2;
+            }
+        }
+
+        // WINGS
+        let w = &mut self.wings;
+        let (w_outer_orbit_1, w_outer_orbit_2) = WING_ORBITS_OUTER[face as usize];
+        let w_wide_orbit = WING_ORBITS_WIDE[face as usize];
+        apply_orbit_with_dir_to_array(w, w_outer_orbit_1, m.dir);
+        apply_orbit_with_dir_to_array(w, w_outer_orbit_2, m.dir);
+        if m.type_ == MoveType::Wide {
+            apply_orbit_with_dir_to_array(w, w_wide_orbit, m.dir);
+        }
+
+        // PLUS CENTERS
+        let centers_plus = &mut self.centers_plus;
+        // here we exploit a coincidence that the wing orbits happen to be the same as the + center orbits (in speffz)
+        let center_plus_orbit_outer = w_outer_orbit_1;
+        let center_plus_orbit_wide = w_outer_orbit_2;
+        apply_orbit_with_dir_to_array(centers_plus, center_plus_orbit_outer, m.dir);
+        if m.type_ == MoveType::Wide {
+            apply_orbit_with_dir_to_array(centers_plus, center_plus_orbit_wide, m.dir);
+        }
+
+        // X CENTERS
+        let centers_x = &mut self.centers_x;
+        let center_x_orbit_outer = w_outer_orbit_1;
+        let (center_x_orbit_wide_1, center_x_orbit_wide_2) = CENTER_ORBITS_WIDE_X[face as usize];
+        apply_orbit_with_dir_to_array(centers_x, center_x_orbit_outer, m.dir);
+        if m.type_ == MoveType::Wide {
+            apply_orbit_with_dir_to_array(centers_x, center_x_orbit_wide_1, m.dir);
+            apply_orbit_with_dir_to_array(centers_x, center_x_orbit_wide_2, m.dir);
+        }
     }
 }

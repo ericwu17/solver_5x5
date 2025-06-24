@@ -110,7 +110,7 @@ pub fn convert_moves_to_string(moves: &Vec<MoveUnpkd>) -> String {
     moves.iter().map(|x| String::from(x)).join(" ")
 }
 
-#[derive(IntoPrimitive, FromPrimitive, Debug)]
+#[derive(IntoPrimitive, FromPrimitive, Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 pub enum Face {
     #[num_enum(default)]
@@ -122,7 +122,7 @@ pub enum Face {
     D = 5,
 }
 
-#[derive(IntoPrimitive, FromPrimitive, Debug)]
+#[derive(IntoPrimitive, FromPrimitive, Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 pub enum MoveType {
     #[num_enum(default)]
@@ -130,7 +130,7 @@ pub enum MoveType {
     Wide = 1,
 }
 
-#[derive(IntoPrimitive, FromPrimitive, Debug)]
+#[derive(IntoPrimitive, FromPrimitive, Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 pub enum MoveDir {
     #[num_enum(default)]
