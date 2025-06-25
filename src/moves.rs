@@ -65,7 +65,7 @@ impl From<&MoveUnpkd> for String {
 impl From<&str> for MoveUnpkd {
     fn from(value: &str) -> Self {
         let chars: Vec<char> = value.chars().collect();
-        if chars.len() < 1 {
+        if chars.is_empty() {
             panic!("invalid string to be converted into MoveUnpkd")
         }
 
@@ -102,12 +102,12 @@ pub fn convert_string_to_moves(s: &str) -> Vec<MoveUnpkd> {
 
     s.split(' ')
         .filter(|s| !s.is_empty())
-        .map(|s| MoveUnpkd::from(s))
+        .map(MoveUnpkd::from)
         .collect()
 }
 
-pub fn convert_moves_to_string(moves: &Vec<MoveUnpkd>) -> String {
-    moves.iter().map(|x| String::from(x)).join(" ")
+pub fn convert_moves_to_string(moves: &[MoveUnpkd]) -> String {
+    moves.iter().map(String::from).join(" ")
 }
 
 #[derive(IntoPrimitive, FromPrimitive, Debug, PartialEq, Eq, Clone, Copy)]
