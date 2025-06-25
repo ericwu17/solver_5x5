@@ -3,7 +3,10 @@ pub mod state_to_img;
 use crate::{
     letters_arr,
     moves::{Face, MoveDir, MoveType, MoveUnpkd},
-    utils::{apply_orbit_with_dir_to_array, is_permutation},
+    utils::{
+        apply_orbit_with_dir_to_array, apply_orbit_with_dir_to_double_packed_u16,
+        apply_orbit_with_dir_to_packed_u16, is_permutation,
+    },
 };
 
 /// Encodes the state of a 5x5 cube,
@@ -47,16 +50,18 @@ pub struct State {
     pub corners_perm: [u8; 8],
     /// Each orientation number is either {0,1,2},
     /// and the sum of orientations must be 0 mod 3.
+    /// The 8 values are bit-packed into 2 bytes (2 bits per value).
     ///
     /// The orientation number denotes the number of clockwise twists that a corner needs before the U/D sticker faces U/D.
-    pub corners_ori: [u8; 8],
+    pub corners_ori: u16,
     /// A permutation of the numbers 0 through 11, where `midges_perm[i]` represents the piece at position `i`.
     pub midges_perm: [u8; 12],
     /// Each orientation is either {0,1},
-    /// and the sum of orientations must be 0 mod 3.
+    /// and the sum of orientations must be 0 mod 2.
+    /// The 12 values are bit-packed into 2 bytes (1 bit per value).
     ///
     /// The edge orientation is defined to be 0 if it is a "good edge" (solvable without doing F or B moves), and 1 otherwise.
-    pub midges_ori: [u8; 12],
+    pub midges_ori: u16,
     /// A permutation of the numbers 0 through 23, where `wings[i]` represents the piece at position `i`.
     pub wings: [u8; 24],
     /// Each number is either {0,1,2,3,4,5},
@@ -122,17 +127,37 @@ const CENTER_ORBITS_WIDE_X: [([usize; 4], [usize; 4]); 6] = [
 ];
 
 impl State {
+    pub fn get_midges_ori(&self) -> [u8; 12] {
+        let mut res = [0; 12];
+
+        for (i, item) in res.iter_mut().enumerate() {
+            *item = ((self.midges_ori >> i) & 1) as u8;
+        }
+
+        res
+    }
+
+    pub fn get_corners_ori(&self) -> [u8; 8] {
+        let mut res = [0; 8];
+
+        for (i, item) in res.iter_mut().enumerate() {
+            *item = ((self.corners_ori >> (2 * i)) & 3) as u8;
+        }
+
+        res
+    }
+
     pub fn is_self_valid(&self) -> bool {
         // CORNERS
         if !is_permutation(&self.corners_perm) {
             return false;
         }
-        for x in self.corners_ori {
+        for x in self.get_corners_ori() {
             if x >= 3 {
                 return false;
             }
         }
-        let corners_ori_sum: usize = self.corners_ori.iter().map(|x| *x as usize).sum();
+        let corners_ori_sum: usize = self.get_corners_ori().iter().map(|x| *x as usize).sum();
         if corners_ori_sum % 3 != 0 {
             return false;
         }
@@ -141,12 +166,7 @@ impl State {
         if !is_permutation(&self.midges_perm) {
             return false;
         }
-        for x in self.midges_ori {
-            if x >= 2 {
-                return false;
-            }
-        }
-        let midges_ori_sum: usize = self.midges_ori.iter().map(|x| *x as usize).sum();
+        let midges_ori_sum: usize = self.get_midges_ori().iter().map(|x| *x as usize).sum();
         if midges_ori_sum % 2 != 0 {
             return false;
         }
@@ -192,9 +212,9 @@ impl State {
     pub fn new() -> Self {
         State {
             corners_perm: [0, 1, 2, 3, 4, 5, 6, 7],
-            corners_ori: [0; 8],
+            corners_ori: 0,
             midges_perm: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-            midges_ori: [0; 12],
+            midges_ori: 0,
             wings: [
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
                 23,
@@ -234,10 +254,14 @@ impl MoveableState for State {
         let c_orbit = CORNER_ORBITS[face as usize];
         let co_changes = CORNER_ORIENTATION_CHANGES[face as usize];
         apply_orbit_with_dir_to_array(cp, c_orbit, m.dir);
-        apply_orbit_with_dir_to_array(co, c_orbit, m.dir);
+        apply_orbit_with_dir_to_double_packed_u16(co, c_orbit, m.dir);
         if m.dir != MoveDir::Dub {
             for i in 0..4 {
-                co[c_orbit[i]] = (co[c_orbit[i]] + co_changes[i]) % 3;
+                let co_old = ((*co >> (2 * c_orbit[i])) & 3) as u8;
+                let co_new = ((co_old + co_changes[i]) % 3) as u16;
+
+                *co &= !(3 << (2 * c_orbit[i]));
+                *co |= co_new << (2 * c_orbit[i]);
             }
         }
 
@@ -245,10 +269,10 @@ impl MoveableState for State {
         let (mp, mo) = (&mut self.midges_perm, &mut self.midges_ori);
         let m_orbit: [usize; 4] = MIDGE_ORBITS[face as usize];
         apply_orbit_with_dir_to_array(mp, m_orbit, m.dir);
-        apply_orbit_with_dir_to_array(mo, m_orbit, m.dir);
+        apply_orbit_with_dir_to_packed_u16(mo, m_orbit, m.dir);
         if m.dir != MoveDir::Dub && (m.face == Face::F || m.face == Face::B) {
-            for i in 0..4 {
-                mo[m_orbit[i]] = (mo[m_orbit[i]] + 1) % 2;
+            for orbit_position in m_orbit {
+                *mo ^= 1 << orbit_position;
             }
         }
 

@@ -201,8 +201,11 @@ fn draw_corners_on_image(state: &State, img: &mut RgbImage) {
         [(5, 0, 4), (4, 4, 4), (1, 0, 4)],
     ];
 
-    for (index, (corner_piece, piece_orientation)) in
-        state.corners_perm.iter().zip(state.corners_ori).enumerate()
+    for (index, (corner_piece, piece_orientation)) in state
+        .corners_perm
+        .iter()
+        .zip(state.get_corners_ori())
+        .enumerate()
     {
         let mut c = corners_colors[*corner_piece as usize];
 
@@ -242,8 +245,11 @@ fn draw_midges_on_image(state: &State, img: &mut RgbImage) {
         [(5, 0, 2), (1, 2, 4)],
     ];
 
-    for (index, (midge_piece, piece_orientation)) in
-        state.midges_perm.iter().zip(state.midges_ori).enumerate()
+    for (index, (midge_piece, piece_orientation)) in state
+        .midges_perm
+        .iter()
+        .zip(state.get_midges_ori())
+        .enumerate()
     {
         let mut c = midges_colors[*midge_piece as usize];
 

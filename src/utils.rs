@@ -47,6 +47,72 @@ where
         }
     }
 }
+
+pub fn apply_orbit_with_dir_to_packed_u16(arr_packed: &mut u16, orbit: [usize; 4], dir: MoveDir) {
+    let mut arr: [u8; 4] = [
+        (*arr_packed >> orbit[0]) as u8 & 1,
+        (*arr_packed >> orbit[1]) as u8 & 1,
+        (*arr_packed >> orbit[2]) as u8 & 1,
+        (*arr_packed >> orbit[3]) as u8 & 1,
+    ];
+
+    match dir {
+        #[rustfmt::skip]
+        MoveDir::CW => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[3], arr[0], arr[1], arr[2]);
+        }
+        #[rustfmt::skip]
+        MoveDir::CCW => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[1], arr[2], arr[3], arr[0]);
+        }
+        #[rustfmt::skip]
+        MoveDir::Dub => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[2], arr[3], arr[0], arr[1]);
+        }
+    }
+    *arr_packed &= !((1 << (orbit[0])) | (1 << (orbit[1])) | (1 << (orbit[2])) | (1 << (orbit[3])));
+    *arr_packed |= ((arr[0] as u16) << orbit[0])
+        | ((arr[1] as u16) << orbit[1])
+        | ((arr[2] as u16) << orbit[2])
+        | ((arr[3] as u16) << orbit[3]);
+}
+
+pub fn apply_orbit_with_dir_to_double_packed_u16(
+    arr_packed: &mut u16,
+    orbit: [usize; 4],
+    dir: MoveDir,
+) {
+    let mut arr: [u8; 4] = [
+        (*arr_packed >> (2 * orbit[0])) as u8 & 3,
+        (*arr_packed >> (2 * orbit[1])) as u8 & 3,
+        (*arr_packed >> (2 * orbit[2])) as u8 & 3,
+        (*arr_packed >> (2 * orbit[3])) as u8 & 3,
+    ];
+
+    match dir {
+        #[rustfmt::skip]
+        MoveDir::CW => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[3], arr[0], arr[1], arr[2]);
+        }
+        #[rustfmt::skip]
+        MoveDir::CCW => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[1], arr[2], arr[3], arr[0]);
+        }
+        #[rustfmt::skip]
+        MoveDir::Dub => {
+            (arr[0], arr[1], arr[2], arr[3]) = (arr[2], arr[3], arr[0], arr[1]);
+        }
+    }
+    *arr_packed &= !((3 << (2 * orbit[0]))
+        | (3 << (2 * orbit[1]))
+        | (3 << (2 * orbit[2]))
+        | (3 << (2 * orbit[3])));
+    *arr_packed |= ((arr[0] as u16) << (2 * orbit[0]))
+        | ((arr[1] as u16) << (2 * orbit[1]))
+        | ((arr[2] as u16) << (2 * orbit[2]))
+        | ((arr[3] as u16) << (2 * orbit[3]));
+}
+
 /// Converts a string of uppercase letters into an array of numbers where A=0, B=1, ..., Z=25
 ///
 /// This macro was written by Claude.ai
